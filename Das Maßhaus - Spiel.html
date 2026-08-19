@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Die Physikalische Akademie – Das Maßhaus</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;user-select:none;-webkit-user-select:none}
+  :root{--bg:#0d0b1e;--panel:#151230;--accent:#f5cb5e;--text:#e8e4f0;--ok:#51e898;--err:#ff4757;
+        --mech:#f5cb5e;--opti:#4ecdc4;--therm:#ff6b6b;--elek:#b088f9;
+        --pixel:'Press Start 2P',monospace;--mono:'VT323',monospace}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--text);font-family:var(--mono),monospace;overflow:hidden;
+       display:flex;flex-direction:column;align-items:center;justify-content:center;touch-action:manipulation}
+
+  /* ---------- Titel ---------- */
+  #title-screen{position:fixed;inset:0;background:radial-gradient(ellipse at 50% 30%,#1a1640,#0d0b1e 70%);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;text-align:center;padding:20px}
+  .wappen{display:flex;gap:14px;margin-bottom:18px}
+  .wp{width:54px;height:64px;border-radius:6px 6px 18px 18px;border:3px solid #2a2450;display:flex;
+      align-items:center;justify-content:center;font-size:26px}
+  #title-screen h1{font-family:var(--pixel);font-size:clamp(15px,3.4vw,30px);color:var(--accent);
+    text-shadow:3px 3px 0 #6b5314;line-height:1.6}
+  #title-screen h2{font-family:var(--pixel);font-size:clamp(10px,1.8vw,15px);color:#9a90c8;margin:10px 0 26px}
+  .start-btn{font-family:var(--pixel);font-size:15px;padding:18px 42px;border:none;border-radius:6px;cursor:pointer;
+    background:linear-gradient(135deg,#f5cb5e,#d9a72e);color:#241c04;box-shadow:0 5px 18px rgba(245,203,94,.35)}
+  .start-btn:active{transform:scale(.96)}
+  .title-info{margin-top:26px;font-size:21px;color:#7a72a5;line-height:1.7}
+  .title-info b{color:#b8aee0}
+
+  /* ---------- HUD ---------- */
+  #hud{width:min(96vw,820px);display:none;justify-content:space-between;align-items:center;gap:8px;
+    padding:8px 12px;background:#151230;border:2px solid #262052;border-bottom:none;border-radius:12px 12px 0 0;
+    font-family:var(--pixel);font-size:9px}
+  .hearts{color:var(--therm);font-size:17px;letter-spacing:2px}
+  #room-badge{background:var(--accent);color:#241c04;padding:4px 8px;border-radius:3px;white-space:nowrap}
+  #room-title{color:#8f86bb;font-size:8px}
+  #pts{color:var(--accent)}
+  .frag-tray{display:flex;gap:5px}
+  .frag{min-width:20px;height:20px;border:2px solid #3a3268;border-radius:4px;display:flex;align-items:center;
+    justify-content:center;font-family:var(--mono);font-size:15px;color:var(--accent);padding:0 4px}
+  .frag.leer{color:#3a3268}
+
+  /* ---------- Spielfeld ---------- */
+  #stage{position:relative;width:min(96vw,820px)}
+  #game-canvas{display:none;width:100%;background:#0a0818;border:2px solid #262052;border-radius:0 0 12px 12px;
+    touch-action:none}
+  #dialog{display:none;width:min(96vw,820px);margin-top:8px;background:#151230;border:2px solid #262052;
+    border-radius:10px;padding:10px 14px;min-height:64px}
+  #dialog .sp{font-family:var(--pixel);font-size:9px;color:var(--accent);margin-bottom:6px}
+  #dialog .tx{font-size:22px;line-height:1.35}
+  #dialog .hint{font-size:18px;color:#7a72a5;margin-top:4px}
+
+  /* ---------- Steuerkreuz ---------- */
+  #pad{display:none;position:fixed;right:14px;bottom:14px;z-index:500;
+    grid-template-columns:repeat(3,54px);grid-template-rows:repeat(3,54px);gap:6px;opacity:.92}
+  #pad button{width:54px;height:54px;border-radius:12px;border:2px solid #3a3268;background:#1c1740;
+    color:#b8aee0;font-size:20px;touch-action:manipulation}
+  #pad button:active{background:#2a2455}
+  #pad .mid{background:#3a2f10;border-color:#6b5314;color:var(--accent)}
+
+  /* ---------- Aufgaben-Overlay ---------- */
+  #ovl{display:none;position:fixed;inset:0;background:rgba(8,6,20,.9);z-index:900;
+    align-items:center;justify-content:center;padding:12px}
+  #card{width:min(96vw,720px);max-height:94vh;overflow-y:auto;background:#161232;border:3px solid #2e2760;
+    border-radius:14px;padding:18px}
+  #card h3{font-family:var(--pixel);font-size:12px;color:var(--accent);margin-bottom:4px;line-height:1.6}
+  #card .raum{font-size:18px;color:#7a72a5;margin-bottom:10px}
+  #c-blatt{display:inline-block;font-size:18px;color:#ffd88a;border:2px dashed #6b5314;border-radius:7px;padding:4px 10px;margin-bottom:10px}
+  #c-blatt.ohne{color:#8f86bb;border-color:#3a3268}
+  .wissen{background:#1d1840;border-left:4px solid var(--accent);padding:8px 12px;font-size:20px;
+    line-height:1.4;margin-bottom:12px;border-radius:0 8px 8px 0}
+  .frage{font-size:22px;line-height:1.4;margin-bottom:12px}
+  .opt{display:block;width:100%;text-align:left;font-family:var(--mono);font-size:21px;color:var(--text);
+    background:#1c1740;border:2px solid #3a3268;border-radius:9px;padding:11px 13px;margin-bottom:8px;
+    cursor:pointer;min-height:48px;line-height:1.3}
+  .opt.sel{border-color:var(--accent);background:#2a2455}
+  .opt.ok{border-color:var(--ok);background:#12331f}
+  .opt.falsch{border-color:var(--err);background:#3a1220}
+  #simwrap{margin-bottom:10px}
+  #simwrap canvas{width:100%;border:2px solid #3a3268;border-radius:9px;background:#0e0b22;touch-action:none}
+  .simrow{display:flex;align-items:center;gap:10px;margin-top:8px;font-size:20px;flex-wrap:wrap}
+  .simrow input[type=range]{flex:1;min-width:160px;height:34px}
+  .simrow input[type=number],.simrow input[type=text]{font-family:var(--mono);font-size:22px;background:#0e0b22;
+    color:var(--text);border:2px solid #3a3268;border-radius:8px;padding:7px 10px;width:120px}
+  textarea{width:100%;font-family:var(--mono);font-size:21px;background:#0e0b22;color:var(--text);
+    border:2px solid #3a3268;border-radius:9px;padding:10px;min-height:76px;user-select:text;-webkit-user-select:text}
+  .btnrow{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
+  .btn{font-family:var(--pixel);font-size:11px;padding:13px 20px;border:none;border-radius:8px;cursor:pointer;min-height:46px}
+  .btn.check{background:var(--ok);color:#04230f}
+  .btn.grau{background:#3a3268;color:#cfc8ee}
+  #fb{margin-top:10px;font-size:21px;line-height:1.35;min-height:26px;white-space:pre-line}
+  #fb.ok{color:var(--ok)} #fb.err{color:#ff9aa5}
+
+  .intro-grid{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;max-width:960px;margin-bottom:24px}
+  .ip{flex:1 1 260px;max-width:300px;background:#161232;border:2px solid #2e2760;border-radius:12px;
+      padding:14px 16px;font-size:20px;line-height:1.45;text-align:left;color:#cfc8ee}
+  .ip b{color:var(--accent)}
+  .ip-t{font-family:var(--pixel);font-size:10px;color:var(--accent);margin-bottom:8px;line-height:1.5}
+
+  /* ---------- Vollbild-Schirme ---------- */
+  .screen{display:none;position:fixed;inset:0;background:rgba(8,6,20,.94);z-index:950;
+    flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px}
+  .screen .big{font-size:64px;margin-bottom:12px}
+  .screen h2{font-family:var(--pixel);font-size:clamp(13px,2.6vw,20px);color:var(--accent);line-height:1.8;margin-bottom:10px}
+  .screen .stats{font-size:23px;color:#b8aee0;line-height:1.6;margin-bottom:18px}
+  .siegel{font-family:var(--pixel);font-size:clamp(13px,3vw,22px);color:#241c04;background:var(--accent);
+    padding:12px 22px;border-radius:8px;margin:8px 0 16px;letter-spacing:2px}
+  .schreib{font-size:20px;color:#ffd88a;border:2px dashed #6b5314;border-radius:8px;padding:8px 14px;margin-bottom:16px}
+</style>
+</head>
+<body>
+
+<div id="title-screen">
+  <div class="wappen">
+    <div class="wp" style="border-color:var(--mech)">⚙️</div>
+    <div class="wp" style="border-color:var(--opti)">👁️</div>
+    <div class="wp" style="border-color:var(--therm)">🔥</div>
+    <div class="wp" style="border-color:var(--elek)">⚡</div>
+  </div>
+  <h1>DIE PHYSIKALISCHE<br>AKADEMIE</h1>
+  <h2>Trakt II · Das Maßhaus</h2>
+  <button class="start-btn" id="startbtn">EINTRETEN</button>
+  <div class="title-info">
+    Steuerung: <b>Steuerkreuz</b> oder Pfeiltasten · <b>●</b> / Leertaste an einer Station<br>
+    Allein oder zu zweit. <b>Ohne Arbeitsblatt kein Fortschritt!</b>
+  </div>
+</div>
+
+
+<div class="screen" id="intro-screen" style="z-index:1001">
+  <h2>BEVOR ES LOSGEHT &#8230;</h2>
+  <div class="intro-grid">
+    <div class="ip"><div class="ip-t">&#128220; DIE GESCHICHTE</div>
+      Du bist Novize der Physikalischen Akademie mit ihren vier H&auml;usern.
+      Magistra Mensura pr&uuml;ft dich im <b>Ma&szlig;haus</b> &ndash; dem Trakt der Gr&ouml;&szlig;en und Gesetze.</div>
+    <div class="ip"><div class="ip-t">&#127919; DEIN AUFTRAG</div>
+      L&ouml;se in jedem Raum die drei Stationen &#128300; &ndash; dann &ouml;ffnet sich die T&uuml;r.
+      Jeder Raum schenkt dir ein <b>Siegelfragment</b>: sofort aufs Arbeitsblatt!</div>
+    <div class="ip"><div class="ip-t">&#128421;&#65039; DER BILDSCHIRM</div>
+      &#9829; deine Versuche &nbsp;&middot;&nbsp; &#9733; Punkte f&uuml;r dein Haus<br>
+      Steuerkreuz/Pfeile: laufen &nbsp;&middot;&nbsp; &#9679; / Leertaste: Station &ouml;ffnen</div>
+  </div>
+  <button class="start-btn" onclick="start()">LOS GEHT&#8217;S!</button>
+</div>
+
+<div id="hud">
+  <span class="hearts" id="hearts">♥♥♥</span>
+  <span id="room-badge">RAUM 1</span>
+  <span id="room-title"></span>
+  <span class="frag-tray" id="frags"></span>
+  <span id="pts">★ 0</span>
+</div>
+<div id="stage"><canvas id="game-canvas" width="800" height="480"></canvas></div>
+<div id="dialog"><div class="sp" id="d-sp">MAGISTRA MENSURA</div><div class="tx" id="d-tx"></div><div class="hint" id="d-hint"></div></div>
+
+<div id="pad">
+  <span></span><button data-k="up">▲</button><span></span>
+  <button data-k="left">◀</button><button class="mid" data-k="act">●</button><button data-k="right">▶</button>
+  <span></span><button data-k="down">▼</button><span></span>
+</div>
+
+<div id="ovl"><div id="card">
+  <h3 id="c-name"></h3><div class="raum" id="c-raum"></div>
+  <div id="c-blatt"></div>
+  <div class="wissen" id="c-wissen"></div>
+  <div class="frage" id="c-frage"></div>
+  <div id="c-body"></div>
+  <div id="fb"></div>
+  <div class="btnrow">
+    <button class="btn check" id="c-check">PRÜFEN</button>
+    <button class="btn grau" id="c-zu">SPÄTER</button>
+  </div>
+</div></div>
+
+<div class="screen" id="raum-fertig">
+  <div class="big">🏛️</div><h2 id="rf-titel">RAUM GESCHAFFT!</h2>
+  <div class="stats" id="rf-stats"></div>
+  <div style="font-size:21px;color:#b8aee0;margin-bottom:6px">Siegelfragment:</div>
+  <div class="siegel" id="rf-frag"></div>
+  <div class="schreib">✎ Trag das Fragment JETZT auf dem Arbeitsblatt ein – Aufgabe 4!</div>
+  <button class="btn check" onclick="naechsterRaum()">WEITER ➡</button>
+</div>
+
+<div class="screen" id="raum-neu">
+  <div class="big">💔</div><h2>ALLE HERZEN VERLOREN</h2>
+  <div class="stats">Kein Drama – Forschen heißt, aus Fehlern zu lernen.<br>Der Raum beginnt von vorn.</div>
+  <button class="btn check" onclick="raumNeustart()">🔄 NOCHMAL</button>
+</div>
+
+<div class="screen" id="bonus-frage">
+  <div class="big">🗝️</div><h2>DIE KAMMER DER MEISTER</h2>
+  <div class="stats">Das Siegel des Maßhauses ist errungen!<br>Hinter dieser Tür warten drei Meisterprüfungen –<br>schwerer, aber jede bringt <b style="color:var(--accent)">Extrapunkte fürs Haus</b>.</div>
+  <div class="btnrow" style="justify-content:center">
+    <button class="btn check" onclick="bonusStart()">HINEIN!</button>
+    <button class="btn grau" onclick="spielEnde()">SPÄTER – ZUM ABSCHLUSS</button>
+  </div>
+</div>
+
+<div class="screen" id="ende">
+  <div class="big">🏆</div><h2>DAS MASSHAUS<br>IST GEMEISTERT!</h2>
+  <div class="stats" id="ende-stats"></div>
+  <div style="font-size:21px;color:#b8aee0">Leitsatz des Trakts:</div>
+  <div class="siegel" id="ende-siegel"></div>
+  <div class="schreib">✎ Prüfe dein Arbeitsblatt: alle Felder gefüllt? Schreib deine Punktzahl neben das Siegel!</div>
+  <div class="stats" style="font-size:19px;color:#7a72a5">Nächster Trakt: das Lichtlabor von Dr. Lumen (Haus Optica).</div>
+</div>
+
+<script>
+"use strict";
+/* Polyfill: aeltere Safari-/Tablet-Browser kennen ctx.roundRect nicht */
+if(!CanvasRenderingContext2D.prototype.roundRect){
+  CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){
+    r=Math.min(r||0,w/2,h/2);
+    this.moveTo(x+r,y);this.arcTo(x+w,y,x+w,y+h,r);this.arcTo(x+w,y+h,x,y+h,r);
+    this.arcTo(x,y+h,x,y,r);this.arcTo(x,y,x+w,y,r);this.closePath();return this};
+}
+/* ============================================================
+   DIE PHYSIKALISCHE AKADEMIE — Engine
+   Ein Trakt = ein Spiel. Räume, Stationen, Siegelfragmente.
+   Engine oben, Trakt-Daten unten in RAEUME/BONUS.
+   Kein localStorage: der Fortschritt lebt auf dem Arbeitsblatt.
+   ============================================================ */
+const TILE=40, SPALTEN=20, ZEILEN=12;
+const cv=document.getElementById('game-canvas'), cx=cv.getContext('2d');
+const G={raum:0,px:2,py:9,herzen:3,punkte:0,geloest:[],frags:[],imBonus:false,inAufgabe:false,
+         bewegSperre:0,fehlversuch:0,dlgTimer:null};
+
+const HAUS={mech:{n:'Mechanica',f:'#f5cb5e',e:'⚙️'},opti:{n:'Optica',f:'#4ecdc4',e:'👁️'},
+            therm:{n:'Thermodynamica',f:'#ff6b6b',e:'🔥'},elek:{n:'Electra',f:'#b088f9',e:'⚡'}};
+
+/* ---------- Anzeige ---------- */
+function hud(){
+  document.getElementById('hearts').textContent='♥'.repeat(G.herzen)+'♡'.repeat(3-G.herzen);
+  document.getElementById('pts').textContent='★ '+G.punkte;
+  const r=aktRaum();
+  document.getElementById('room-badge').textContent=G.imBonus?'KAMMER':'RAUM '+(G.raum+1);
+  document.getElementById('room-title').textContent=r.name;
+  const tray=document.getElementById('frags');tray.innerHTML='';
+  RAEUME.forEach((rr,i)=>{const d=document.createElement('span');
+    d.className='frag'+(G.frags[i]?'':' leer');d.textContent=G.frags[i]?rr.fragment:'?';tray.appendChild(d)});
+}
+function sag(txt,hint){
+  document.getElementById('d-sp').textContent=aktRaum().meister||'MAGISTRA MENSURA';
+  document.getElementById('d-tx').textContent=txt;
+  document.getElementById('d-hint').textContent=hint||'';
+}
+function aktRaum(){return G.imBonus?BONUS:RAEUME[G.raum]}
+
+/* ---------- Karte ---------- */
+function kachel(x,y){const k=aktRaum().karte[y];return k?k[x]:'w'}
+function alleGeloest(){return aktRaum().stationen.every(s=>G.geloest.includes(s.id))}
+function darfHin(x,y){
+  if(x<0||y<0||x>=SPALTEN||y>=ZEILEN)return false;
+  const k=kachel(x,y);
+  if(k==='w'||k==='t')return false;
+  if(k==='D'&&!alleGeloest()){sag('Die Tür trägt ein Siegel. Löse erst alle Stationen dieses Raums!');return false}
+  return true;
+}
+function beweg(dx,dy){
+  if(G.inAufgabe)return;
+  const nx=G.px+dx,ny=G.py+dy;
+  if(!darfHin(nx,ny))return;
+  G.px=nx;G.py=ny;
+  if(kachel(nx,ny)==='D')tuerErreicht();
+}
+function interakt(){
+  if(G.inAufgabe)return;
+  for(const s of aktRaum().stationen){
+    if(Math.abs(s.x-G.px)+Math.abs(s.y-G.py)<=1&&!G.geloest.includes(s.id)){aufgabeAuf(s);return}
+  }
+  sag('Hier ist keine offene Station. Such die 🔬-Tische!');
+}
+
+/* ---------- Zeichnen ---------- */
+function zeichne(){
+  const r=aktRaum(),farbe=r.farbe;
+  cx.fillStyle='#0e0b22';cx.fillRect(0,0,800,480);
+  for(let y=0;y<ZEILEN;y++)for(let x=0;x<SPALTEN;x++){
+    const k=kachel(x,y),X=x*TILE,Y=y*TILE;
+    if(k==='w'){cx.fillStyle='#191440';cx.fillRect(X,Y,TILE,TILE);
+      cx.fillStyle='#221b52';cx.fillRect(X+2,Y+2,TILE-4,10);}
+    else{cx.fillStyle=(x+y)%2?'#161232':'#181438';cx.fillRect(X,Y,TILE,TILE);}
+    if(k==='t'){cx.fillStyle='#2a2455';cx.fillRect(X+3,Y+8,TILE-6,TILE-14);
+      cx.fillStyle='#3a3268';cx.fillRect(X+3,Y+8,TILE-6,7);}
+    if(k==='D'){cx.fillStyle=alleGeloest()?farbe:'#3a3268';cx.fillRect(X+4,Y+2,TILE-8,TILE-4);
+      cx.fillStyle='#0e0b22';cx.font='16px monospace';cx.textAlign='center';
+      cx.fillText(alleGeloest()?'⬆':'🔒',X+TILE/2,Y+TILE/2+6);}
+  }
+  // Stationen
+  cx.font='22px serif';cx.textAlign='center';
+  for(const s of r.stationen){
+    const X=s.x*TILE,Y=s.y*TILE,fertig=G.geloest.includes(s.id);
+    cx.fillStyle=fertig?'#12331f':'#241d55';
+    cx.beginPath();cx.roundRect(X+2,Y+2,TILE-4,TILE-4,7);cx.fill();
+    cx.strokeStyle=fertig?'#51e898':farbe;cx.lineWidth=2;cx.stroke();
+    cx.fillText(fertig?'✅':s.emoji,X+TILE/2,Y+TILE/2+8);
+  }
+  // Spielfigur (Novizen-Hut)
+  const X=G.px*TILE,Y=G.py*TILE;
+  cx.fillStyle='#e8e4f0';cx.beginPath();cx.arc(X+TILE/2,Y+TILE/2+4,11,0,7);cx.fill();
+  cx.fillStyle=farbe;cx.beginPath();
+  cx.moveTo(X+TILE/2-13,Y+TILE/2-2);cx.lineTo(X+TILE/2+13,Y+TILE/2-2);cx.lineTo(X+TILE/2,Y+TILE/2-20);
+  cx.closePath();cx.fill();
+  cx.fillStyle='#0e0b22';cx.fillRect(X+TILE/2-5,Y+TILE/2+2,3,3);cx.fillRect(X+TILE/2+2,Y+TILE/2+2,3,3);
+  requestAnimationFrame(zeichne);
+}
+
+/* ---------- Aufgaben ---------- */
+let akt=null,simPruef=null;
+function aufgabeAuf(s){
+  akt=s;G.inAufgabe=true;G.fehlversuch=0;
+  befuellen(s);
+}
+function befuellen(s){
+  document.getElementById('c-name').textContent=s.emoji+' '+s.name;
+  document.getElementById('c-raum').textContent=aktRaum().name;
+  const bl=document.getElementById('c-blatt');
+  if(s.blatt){bl.textContent='✎ Arbeitsblatt: '+s.blatt;bl.className=''}
+  else{bl.textContent='🧠 Nur im Spiel – hier ist kein Blatteintrag nötig';bl.className='ohne'}
+  document.getElementById('c-wissen').innerHTML=s.wissen;
+  document.getElementById('c-frage').innerHTML=s.frage;
+  const b=document.getElementById('c-body');b.innerHTML='';simPruef=null;
+  const fb=document.getElementById('fb');fb.textContent='';fb.className='';
+  if(s.typ==='mc'){
+    s.optionen.forEach((o,i)=>{const el=document.createElement('button');el.className='opt';el.innerHTML=o.t;
+      el.onclick=()=>{if(s.mehrfach)el.classList.toggle('sel');
+        else{b.querySelectorAll('.opt').forEach(x=>x.classList.remove('sel'));el.classList.add('sel')}};
+      el.dataset.i=i;b.appendChild(el)});
+  }else if(s.typ==='text'){
+    const t=document.createElement('textarea');t.id='c-text';t.placeholder='Schreib deine Antwort in ganzen Sätzen …';
+    b.appendChild(t);
+  }else if(s.typ==='sim'){
+    const w=document.createElement('div');w.id='simwrap';b.appendChild(w);
+    simPruef=s.sim(w);
+  }
+  document.getElementById('ovl').style.display='flex';
+}
+function aufgabeZu(){document.getElementById('ovl').style.display='none';G.inAufgabe=false}
+document.getElementById('c-zu').onclick=()=>{
+  const s=akt;aufgabeZu();
+  const zu=document.getElementById('c-zu');
+  if(fertigOffen){
+    fertigOffen=false;
+    document.getElementById('c-check').style.display='';
+    zu.textContent='SPÄTER';zu.className='btn grau';
+    if(s&&s.schreib)sag('✎ '+s.schreib);
+    else sag(alleGeloest()?'Alle Stationen gelöst – zur Tür!':'Weiter zur nächsten Station!');
+    if(G.imBonus&&alleGeloest())spielEnde(true);
+  }else sag('Die Station wartet auf dich.');
+};
+document.getElementById('c-check').onclick=()=>{
+  const s=akt;if(!s)return;let ok=false;
+  if(s.typ==='mc'){
+    const sel=[...document.querySelectorAll('#c-body .opt')].map(el=>el.classList.contains('sel'));
+    if(!sel.some(x=>x)){zeigFb('Wähle zuerst eine Antwort aus.',false,true);return}
+    ok=s.optionen.every((o,i)=>(!!o.ok)===sel[i]);
+    document.querySelectorAll('#c-body .opt').forEach((el,i)=>{
+      if(sel[i])el.classList.add(s.optionen[i].ok?'ok':'falsch')});
+  }else if(s.typ==='text'){
+    const t=(document.getElementById('c-text').value||'').toLowerCase();
+    if(t.trim().length<8){zeigFb('Schreib einen ganzen Satz.',false,true);return}
+    ok=s.pruef(t);
+  }else if(s.typ==='sim'){const r=simPruef&&simPruef();if(r===null)return;ok=r}
+  if(ok)stationGeloest(s);else fehler(s);
+};
+function zeigFb(txt,ok,neutral){const fb=document.getElementById('fb');
+  fb.textContent=txt;fb.className=neutral?'':(ok?'ok':'err')}
+let fertigOffen=false;
+function stationGeloest(s){
+  const p=s.punkte||(G.fehlversuch===0?15:8);
+  G.punkte+=p;G.geloest.push(s.id);hud();
+  zeigFb('✔ '+s.gut+'  (+'+p+' ★)'+(s.schreib?'\n✎ '+s.schreib:''),true);
+  document.getElementById('c-check').style.display='none';
+  const zu=document.getElementById('c-zu');
+  zu.textContent='WEITER ➡';zu.className='btn check';fertigOffen=true;
+}
+function fehler(s){
+  G.fehlversuch++;
+  if(!G.imBonus){G.herzen--;hud()}
+  document.querySelectorAll('#c-body .opt').forEach(el=>el.classList.remove('sel','falsch'));
+  if(G.herzen<=0&&!G.imBonus){zeigFb('✘ '+s.tipp,false);aufgabeZu();schirm('raum-neu');return}
+  if(s.var&&s.var.length){
+    const alterTipp=s.tipp;
+    Object.assign(s,s.var.shift());
+    zeigFb('✘ Noch nicht richtig. ('+alterTipp+')\n🔄 Magistra Mensura stellt dir eine NEUE Frage …',false);
+    setTimeout(()=>{if(G.inAufgabe&&akt===s)befuellen(s)},1800);
+  }else zeigFb('✘ '+s.tipp,false);
+}
+
+/* ---------- Raumwechsel ---------- */
+function schirm(id){document.querySelectorAll('.screen').forEach(s=>s.style.display='none');
+  if(id)document.getElementById(id).style.display='flex'}
+function tuerErreicht(){
+  if(G.imBonus)return;
+  const r=RAEUME[G.raum];
+  G.frags[G.raum]=true;hud();
+  document.getElementById('rf-titel').textContent=r.name.toUpperCase()+' GESCHAFFT!';
+  document.getElementById('rf-stats').innerHTML='★ '+G.punkte+' Forscherpunkte · Herzen übrig: '+G.herzen;
+  document.getElementById('rf-frag').textContent='„'+r.fragment+'“';
+  schirm('raum-fertig');
+}
+function naechsterRaum(){
+  schirm(null);
+  if(G.raum<RAEUME.length-1){G.raum++;raumStart()}
+  else schirm('bonus-frage');
+}
+function raumStart(){
+  const r=aktRaum();
+  G.px=r.start[0];G.py=r.start[1];G.geloest=G.geloest.filter(id=>!r.stationen.some(s=>s.id===id));
+  G.herzen=3;hud();sag(r.intro,r.hinweis||'');
+}
+function raumNeustart(){schirm(null);G.punkte=Math.max(0,G.punkte-5);raumStart()}
+function bonusStart(){schirm(null);G.imBonus=true;raumStart();hud()}
+function spielEnde(fertigBonus){
+  document.getElementById('ende-stats').innerHTML='★ <b style="color:var(--accent)">'+G.punkte+
+    '</b> Forscherpunkte für euer Haus'+(fertigBonus?'<br>👑 Kammer der Meister bestanden!':'');
+  document.getElementById('ende-siegel').textContent=RAEUME.map(r=>r.fragment).join(' ');
+  schirm('ende');
+}
+
+/* ---------- Eingabe ---------- */
+const richt={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]};
+document.querySelectorAll('#pad button').forEach(b=>{
+  const k=b.dataset.k;
+  b.addEventListener('pointerdown',e=>{e.preventDefault();
+    if(k==='act')interakt();else beweg(...richt[k])});
+});
+document.addEventListener('keydown',e=>{
+  if(G.inAufgabe){if(e.key==='Escape')document.getElementById('c-zu').click();return}
+  const m={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',w:'up',s:'down',a:'left',d:'right'};
+  if(m[e.key]){e.preventDefault();beweg(...richt[m[e.key]])}
+  if(e.key===' '||e.key==='Enter'){e.preventDefault();
+    if(document.getElementById('title-screen').style.display!=='none'){document.getElementById('title-screen').style.display='none';document.getElementById('intro-screen').style.display='flex'}else if(document.getElementById('intro-screen').style.display==='flex')start();else interakt()}
+});
+document.getElementById('startbtn').addEventListener('pointerdown',e=>{e.preventDefault();document.getElementById('title-screen').style.display='none';document.getElementById('intro-screen').style.display='flex'});
+function start(){
+  document.getElementById('title-screen').style.display='none';
+  document.getElementById('intro-screen').style.display='none';
+  ['hud'].forEach(id=>document.getElementById(id).style.display='flex');
+  document.getElementById('game-canvas').style.display='block';
+  document.getElementById('dialog').style.display='block';
+  document.getElementById('pad').style.display='grid';
+  raumStart();zeichne();
+}
+
+/* ---------- Sim-Werkzeuge ---------- */
+function fitFont(g,txt,maxB,basis){
+  let f=basis;g.font=f+'px sans-serif';
+  while(f>9&&g.measureText(txt).width>maxB){f--;g.font=f+'px sans-serif'}
+  return f;
+}
+function simCanvas(w,hoehe){
+  const c=document.createElement('canvas');c.width=680;c.height=hoehe||320;w.appendChild(c);
+  return c;
+}
+function pxPos(e,c){const r=c.getBoundingClientRect();
+  return{x:(e.clientX-r.left)*c.width/r.width,y:(e.clientY-r.top)*c.height/r.height}}
+
+/* ============================================================
+   TRAKT-DATEN: DAS MASSHAUS (Stunde 2, Klasse 6)
+   Meisterin: Magistra Mensura
+   ============================================================ */
+
+/* ---- Sim 1: Phänomene in die Häuser ziehen (Raum 1) ---- */
+function simHaeuser(w,set){
+  const c=simCanvas(w,410),g=c.getContext('2d');
+  const ZB=162,ZH=158,ZY=242;
+  const zonen=[{k:'mech'},{k:'opti'},{k:'therm'},{k:'elek'}]
+    .map((z,i)=>({...z,x:8+i*170,y:ZY}));
+  const KB=212,KH=36;
+  const POS=[[120,40],[340,40],[560,40],[230,96],[452,96]];
+  const SETS=[
+    [{t:'🌈 Regenbogen',haus:'opti'},{t:'🧭 Kompassnadel',haus:'elek'},
+     {t:'🧊 Eis schmilzt',haus:'therm'},{t:'🏗️ Kran hebt Last',haus:'mech'},
+     {t:'⏱️ Pendel schwingt',haus:'mech'}],
+    [{t:'🔦 Taschenlampe leuchtet',haus:'opti'},{t:'🔔 Türklingel klingelt',haus:'elek'},
+     {t:'☕ Kakao dampft',haus:'therm'},{t:'🛷 Schlitten rutscht den Hang',haus:'mech'},
+     {t:'🪁 Drachen zieht an der Schnur',haus:'mech'}],
+  ];
+  const dinge=SETS[set||0].map((d,i)=>({...d,x:POS[i][0],y:POS[i][1],zone:null}));
+  let zieh=null;
+  function malen(){
+    g.clearRect(0,0,c.width,c.height);
+    g.textAlign='center';
+    zonen.forEach(z=>{const H=HAUS[z.k];
+      g.strokeStyle=H.f;g.lineWidth=2;g.fillStyle='rgba(255,255,255,0.03)';
+      g.beginPath();g.roundRect(z.x,z.y,ZB,ZH,10);g.fill();g.stroke();
+      g.fillStyle=H.f;
+      g.font='22px sans-serif';g.fillText(H.e,z.x+ZB/2,z.y+30);
+      fitFont(g,H.n,ZB-14,14);g.fillText(H.n,z.x+ZB/2,z.y+52);
+    });
+    dinge.forEach(d=>{
+      g.fillStyle=d===zieh?'#2a2455':'#1c1740';
+      g.strokeStyle=d.zone?HAUS[d.zone].f:'#5a4fa0';g.lineWidth=2;
+      g.beginPath();g.roundRect(d.x-KB/2,d.y-KH/2,KB,KH,8);g.fill();g.stroke();
+      g.fillStyle='#e8e4f0';fitFont(g,d.t,KB-22,16);g.fillText(d.t,d.x,d.y+5);
+    });
+  }
+  c.onpointerdown=e=>{const p=pxPos(e,c);
+    zieh=dinge.slice().reverse().find(d=>Math.abs(p.x-d.x)<KB/2+6&&Math.abs(p.y-d.y)<KH/2+8)||null;
+    if(zieh)c.setPointerCapture(e.pointerId);malen()};
+  c.onpointermove=e=>{if(!zieh)return;const p=pxPos(e,c);zieh.x=p.x;zieh.y=p.y;
+    zieh.zone=null;
+    zonen.forEach(z=>{if(p.x>z.x&&p.x<z.x+ZB&&p.y>z.y&&p.y<z.y+ZH)zieh.zone=z.k});malen()};
+  c.onpointerup=()=>{zieh=null;malen()};
+  malen();
+  return()=>{
+    if(dinge.some(d=>!d.zone)){zeigFb('Zieh erst alle fünf Karten in ein Haus.',false,true);return null}
+    return dinge.every(d=>d.zone===d.haus);
+  };
+}
+
+/* ---- Sim 2: Messzylinder ablesen (Raum 2) ---- */
+function simZylinder(w,fuell){
+  const c=simCanvas(w,330),g=c.getContext('2d');
+  function malen(){
+    g.clearRect(0,0,c.width,c.height);
+    const x=250,y0=290,skala=2.2;
+    g.strokeStyle='#8f86bb';g.lineWidth=3;
+    g.beginPath();g.moveTo(x,40);g.lineTo(x,y0);g.lineTo(x+120,y0);g.lineTo(x+120,40);g.stroke();
+    const fy=y0-fuell*skala;
+    g.fillStyle='rgba(78,205,196,.35)';g.fillRect(x+2,fy,116,y0-fy-2);
+    g.strokeStyle='#4ecdc4';g.lineWidth=3;g.beginPath();g.moveTo(x+2,fy);
+    g.quadraticCurveTo(x+60,fy+8,x+118,fy);g.stroke();
+    g.font='16px sans-serif';g.textAlign='right';
+    for(let ml=0;ml<=100;ml+=2){
+      const y=y0-ml*skala,haupt=ml%10===0;
+      g.strokeStyle=haupt?'#e8e4f0':'#5a4fa0';g.lineWidth=haupt?2:1;
+      g.beginPath();g.moveTo(x,y);g.lineTo(x+(haupt?26:14),y);g.stroke();
+      if(haupt){g.fillStyle='#e8e4f0';g.fillText(ml,x-8,y+5)}
+    }
+    g.fillStyle='#8f86bb';g.font='17px sans-serif';g.textAlign='left';
+    g.fillText('ml',x-38,52);
+    g.fillText('Ein kleiner Strich = 2 ml.',x+150,120);
+    g.fillText('Lies auf den Milliliter genau',x+150,150);
+    g.fillText('am unteren Rand des Bogens ab.',x+150,172);
+  }
+  malen();
+  const row=document.createElement('div');row.className='simrow';
+  row.innerHTML='<label>Abgelesenes Volumen:</label><input type="text" id="zyl-wert" inputmode="decimal" autocomplete="off"> <span>ml</span>';
+  w.appendChild(row);
+  return()=>{
+    const v=parseFloat((document.getElementById('zyl-wert').value||'').replace(',','.'));
+    if(isNaN(v)){zeigFb('Trag zuerst einen Wert ein.',false,true);return null}
+    return v===fuell;
+  };
+}
+
+/* ---- Sim 3: Gesetz oder Theorie? Karten sortieren (Raum 3) ---- */
+function simSortGT(w,set){
+  const c=simCanvas(w,350),g=c.getContext('2d');
+  const zonen=[{k:'G',t1:'⚖️ PHYSIKALISCHES',t2:'GESETZ',x:25,y:200,b:300},
+               {k:'T',t1:'💭 THEORIE',t2:'(Modell)',x:355,y:200,b:300}];
+  const KB=330,KH=40;
+  const SETS=[
+    [{t:'Alles, was du loslässt, fällt nach unten.',ziel:'G'},
+     {t:'Alle Stoffe bestehen aus winzigen Teilchen.',ziel:'T'},
+     {t:'Heißer Tee wird von allein kalt – nie heißer.',ziel:'G'}],
+    [{t:'Magnete ziehen Eisenstücke an – bei jedem Versuch.',ziel:'G'},
+     {t:'Wärme ist die Bewegung winziger Teilchen.',ziel:'T'},
+     {t:'Zucker löst sich in warmem Wasser schneller.',ziel:'G'}],
+  ];
+  const karten=SETS[set||0].map((k,i)=>({...k,x:340,y:36+i*56,zone:null}));
+  let zieh=null;
+  function malen(){
+    g.clearRect(0,0,c.width,c.height);
+    g.textAlign='center';
+    zonen.forEach(z=>{
+      const f=z.k==='G'?'#f5cb5e':'#4ecdc4';
+      g.strokeStyle=f;g.lineWidth=2;g.fillStyle='rgba(255,255,255,.03)';
+      g.beginPath();g.roundRect(z.x,z.y,z.b,132,10);g.fill();g.stroke();
+      g.fillStyle=f;
+      fitFont(g,z.t1,z.b-20,15);g.fillText(z.t1,z.x+z.b/2,z.y+24);
+      fitFont(g,z.t2,z.b-20,15);g.fillText(z.t2,z.x+z.b/2,z.y+44)});
+    karten.forEach(k=>{
+      g.fillStyle=k===zieh?'#2a2455':'#1c1740';g.strokeStyle='#5a4fa0';g.lineWidth=2;
+      g.beginPath();g.roundRect(k.x-KB/2,k.y-KH/2,KB,KH,8);g.fill();g.stroke();
+      g.fillStyle='#e8e4f0';fitFont(g,k.t,KB-22,15);g.fillText(k.t,k.x,k.y+5);
+    });
+  }
+  c.onpointerdown=e=>{const p=pxPos(e,c);
+    zieh=karten.slice().reverse().find(k=>Math.abs(p.x-k.x)<KB/2+6&&Math.abs(p.y-k.y)<KH/2+8)||null;
+    if(zieh)c.setPointerCapture(e.pointerId);malen()};
+  c.onpointermove=e=>{if(!zieh)return;const p=pxPos(e,c);zieh.x=p.x;zieh.y=p.y;zieh.zone=null;
+    zonen.forEach(z=>{if(p.x>z.x&&p.x<z.x+z.b&&p.y>z.y&&p.y<z.y+132)zieh.zone=z.k});malen()};
+  c.onpointerup=()=>{zieh=null;malen()};
+  malen();
+  return()=>{
+    if(karten.some(k=>!k.zone)){zeigFb('Zieh alle drei Karten in ein Feld.',false,true);return null}
+    return karten.every(k=>k.zone===k.ziel);
+  };
+}
+
+/* ---- Sim 4: Einheiten umrechnen (parametrisch, Kammer der Meister) ---- */
+function simEinheiten(w,aufgaben){
+  aufgaben.forEach((a,i)=>{
+    const r=document.createElement('div');r.className='simrow';
+    r.innerHTML='<label>'+a[0]+' =</label><input type="text" id="uu'+i+
+      '" inputmode="decimal" autocomplete="off"><span>'+a[2]+'</span>';
+    w.appendChild(r);
+  });
+  return()=>{
+    const werte=aufgaben.map((a,i)=>
+      parseFloat((document.getElementById('uu'+i).value||'').replace(',','.')));
+    if(werte.some(isNaN)){zeigFb('Fülle alle Felder aus.',false,true);return null}
+    return aufgaben.every((a,i)=>Math.abs(werte[i]-a[1])<1e-9);
+  };
+}
+
+/* ---------- Die drei Pflichträume ---------- */
+const KARTE_A=["wwwwwwwwwwwwwwwwwwww","w..................w","w...1........2.....w","w..................w","w....tt............w","w..................w","w.........3........w","w..................w","w..................w","w..................w","w..................w","wwwwwwwwwDwwwwwwwwww"];
+const KARTE_B=["wwwwwwwwwwwwwwwwwwww","w..................w","w......1...........w","w..................w","w..........tt......w","w...2..............w","w..................w","w.............3....w","w..................w","w..................w","w..................w","wwwwwwwwwDwwwwwwwwww"];
+
+const RAEUME=[
+{ name:'Halle der vier Häuser',farbe:'#f5cb5e',fragment:'GESETZE',meister:'MAGISTRA MENSURA',
+  start:[2,9],karte:KARTE_A,
+  intro:'Willkommen im Maßhaus, Novize! Zeig erst, dass du die vier Häuser kennst.',
+  hinweis:'Lauf zu einer Station und drücke ●.',
+  stationen:[
+    {id:'a1',blatt:'Aufgabe 1 – Zeile „Fahrraddynamo“',x:4,y:2,emoji:'🚲',name:'Der Fahrraddynamo',typ:'mc',mehrfach:true,
+     wissen:'Manche Phänomene gehören zu <b>mehreren Häusern</b>. Entscheidend ist, <b>was dabei passiert</b>.',
+     frage:'Der Dynamo wird vom Rad gedreht und erzeugt dabei Strom für die Lampe. Welche Häuser forschen an diesem Vorgang? (Mehrfachauswahl!)',
+     optionen:[{t:'⚙️ Mechanica – das Rad dreht den Dynamo, Bewegung wird übertragen',ok:true},
+               {t:'⚡ Electra – aus der Drehung entsteht elektrischer Strom',ok:true},
+               {t:'🔥 Thermodynamica – der Dynamo funktioniert nur, wenn er warm ist',ok:false},
+               {t:'👁️ Optica – die Lampe leuchtet, also ist es reine Lichtforschung',ok:false}],
+     tipp:'Was passiert im Dynamo selbst? Drehung hinein – Strom heraus. Zwei Häuser stecken drin.',
+     gut:'Bewegung wird zu Strom: Mechanica UND Electra – das ist die Pointe.',
+     schreib:'Trag den Dynamo mit beiden Häusern und der Begründung in Aufgabe 1 ein!',
+     var:[{name:'Das Windrad',frage:'Der Wind dreht die Flügel des Windrads – daraus entsteht Strom fürs Dorf. Welche Häuser forschen daran? (Mehrfachauswahl!)',
+       optionen:[{t:'⚙️ Mechanica – der Wind bewegt die Flügel, Drehung wird übertragen',ok:true},
+                 {t:'⚡ Electra – aus der Drehung entsteht elektrischer Strom',ok:true},
+                 {t:'👁️ Optica – man kann das Windrad von weitem sehen',ok:false},
+                 {t:'🔥 Thermodynamica – der Wind ist manchmal warm',ok:false}],
+       tipp:'Sehen kann man alles – entscheidend ist, was im Windrad PASSIERT.',
+       gut:'Wieder Bewegung zu Strom: Mechanica und Electra arbeiten zusammen.',
+       schreib:'Trag in Aufgabe 1 die Dynamo-Zeile ein – das Windrad funktioniert genauso!'}]},
+    {id:'a2',x:13,y:2,emoji:'🗂️',name:'Die große Sortierung',typ:'sim',sim:w=>simHaeuser(w,0),var:[{sim:w=>simHaeuser(w,1),tipp:'Taschenlampe: Was kommt heraus? Kakao: Was steigt auf? Schlitten und Drachen: Wo wirken Kräfte?'}],
+     wissen:'Ordne zu: In welchem Haus wird das Phänomen <b>erforscht</b>?',
+     frage:'Zieh jede Karte in das passende Haus.',
+     tipp:'Kompassnadel: Was richtet sie aus? Kein Licht, keine Wärme … Pendel und Kran: Hier wirken Kräfte und Bewegung.',
+     gut:'Alle fünf richtig einsortiert!'},
+    {id:'a3',blatt:'Aufgabe 1 – Zeile „Mikrowelle“',x:10,y:6,emoji:'📡',name:'Die Mikrowelle',typ:'text',
+     wissen:'Die Mikrowelle nutzt <b>elektrische Wellen</b>, die das Essen <b>erwärmen</b>.',
+     frage:'Begründe in einem Satz, warum die Mikrowelle zu ZWEI Häusern gehört. Nutze die Wörter <b>Strom/elektrisch</b> und <b>Wärme</b>.',
+     pruef:t=>(t.includes('strom')||t.includes('elektr')||t.includes('welle'))&&(t.includes('wärme')||t.includes('warm')||t.includes('erhitz')||t.includes('erwärm')),
+     tipp:'Was braucht die Mikrowelle (Haus Electra)? Und was macht sie mit dem Essen (Haus Thermodynamica)?',
+     var:[{name:'Der Föhn',frage:'Auch der Föhn gehört zu zwei Häusern. Begründe in einem Satz – nutze <b>Strom/elektrisch</b> und <b>Wärme/warm</b>.',
+       pruef:t=>(t.includes('strom')||t.includes('elektr'))&&(t.includes('wärme')||t.includes('warm')||t.includes('erhitz')||t.includes('heiß')),
+       tipp:'Womit läuft der Föhn – und was macht er mit der Luft?',
+       gut:'Elektrischer Strom erwärmt die Luft – Electra und Thermodynamica.',
+       schreib:'Schreib die Begründung in Aufgabe 1 – Zeile „Mikrowelle“ (der Föhn funktioniert genauso)!'}],
+     gut:'Elektrische Wellen erwärmen das Essen – Electra und Thermodynamica arbeiten zusammen.',
+     schreib:'Schreib diese Begründung als Zeile „Mikrowelle“ in Aufgabe 1!'}
+  ]},
+{ name:'Kammer der Größen',farbe:'#4ecdc4',fragment:'GELTEN',meister:'MAGISTRA MENSURA',
+  start:[2,9],karte:KARTE_B,
+  intro:'Gut! Nun zum Handwerkszeug jedes Forschers: den physikalischen Größen.',
+  stationen:[
+    {id:'b1',blatt:'Aufgabe 2 – Steckbrief-Tabelle',x:7,y:2,emoji:'🪪',name:'Der Steckbrief einer Größe',typ:'mc',mehrfach:false,
+     wissen:'Zu jeder Größe gehören: <b>Definition</b> (was wird gemessen?), <b>Formelzeichen</b>, <b>Einheit</b> und <b>Messgerät</b>.',
+     frage:'Nur EIN Steckbrief ist fehlerfrei. Welcher?',
+     optionen:[{t:'Zeit – Formelzeichen t – Einheit Sekunde (s) – Stoppuhr',ok:true},
+               {t:'Masse – Formelzeichen kg – Einheit m – Waage',ok:false},
+               {t:'Länge – Formelzeichen l – Einheit Lineal – Meter',ok:false},
+               {t:'Temperatur – Formelzeichen °C – Einheit T – Thermometer',ok:false}],
+     tipp:'Formelzeichen = Buchstabe für die Größe. Einheit = das Vergleichsmaß. Messgerät = das Werkzeug. In drei Steckbriefen ist etwas vertauscht!',
+     gut:'t, Sekunde, Stoppuhr – alles am richtigen Platz.',
+     var:[{frage:'Und noch einmal – welcher Steckbrief ist fehlerfrei?',
+       optionen:[{t:'Masse – Formelzeichen m – Einheit Kilogramm (kg) – Waage',ok:true},
+                 {t:'Zeit – Formelzeichen s – Einheit t – Stoppuhr',ok:false},
+                 {t:'Länge – Formelzeichen Meter – Einheit l – Maßband',ok:false},
+                 {t:'Masse – Formelzeichen kg – Einheit Waage – m',ok:false}],
+       tipp:'Der Buchstabe der Größe kommt zuerst, dann ihr Vergleichsmaß, dann das Werkzeug.',
+       gut:'m, Kilogramm, Waage – fehlerfrei!'}],
+     schreib:'Füll jetzt die Steckbrief-Tabelle in Aufgabe 2 aus – Zeile für Zeile!'},
+    {id:'b2',blatt:'Aufgabe 2 – Messwert V unter der Tabelle',x:4,y:5,emoji:'🧪',name:'Prüfung am Messzylinder',typ:'sim',sim:w=>simZylinder(w,64),var:[{sim:w=>simZylinder(w,78),gut:'78 ml – auf den Milliliter genau!'},{sim:w=>simZylinder(w,46),gut:'46 ml – auf den Milliliter genau!'}],
+     wissen:'Beim Ablesen zählen die <b>Zwischenstriche</b>. Immer auf Augenhöhe ablesen!',
+     frage:'Lies das Volumen im Messzylinder ab und trag es ein.',
+     tipp:'Zwischen 60 und 70 liegen fünf kleine Striche – jeder ist 2 ml.',
+     gut:'64 ml – sauber abgelesen, auf den Zwischenstrich genau.',
+     schreib:'Trag deinen Messwert in Aufgabe 2 unter der Tabelle ein!'},
+    {id:'b3',x:14,y:7,emoji:'🌍',name:'Wozu Einheiten?',typ:'text',
+     wissen:'Eine <b>Einheit</b> ist ein festes Vergleichsmaß – der Meter ist überall gleich lang.',
+     frage:'Erkläre in einem Satz, warum Forscher überall auf der Welt DIESELBEN Einheiten benutzen. Nutze das Wort <b>vergleichen</b>.',
+     pruef:t=>t.includes('vergleich')&&(t.includes('mess')||t.includes('gleich')||t.includes('überall')||t.includes('welt')||t.includes('ergebnis')),
+     tipp:'Was wäre, wenn jedes Land eine eigene „Elle“ hätte? Könnte man Messergebnisse dann noch …?',
+     var:[{frage:'Ein Forscher in Japan und eine Forscherin in Dessau messen denselben Tisch. Warum brauchen beide DIESELBE Einheit? Nutze <b>vergleichen</b>.',
+       pruef:t=>t.includes('vergleich')&&(t.includes('mess')||t.includes('gleich')||t.includes('ergebnis')||t.includes('einheit')),
+       tipp:'Was passiert, wenn er in „Fuß“ misst und sie in Metern?',
+       gut:'Nur mit derselben Einheit lassen sich die Messwerte vergleichen.'}],
+     gut:'Genau: Nur mit gleichen Einheiten kann man Messwerte überall vergleichen.'}
+  ]},
+{ name:'Saal der Gesetze',farbe:'#b088f9',fragment:'ÜBERALL',meister:'MAGISTRA MENSURA',
+  start:[2,9],karte:KARTE_A,
+  intro:'Die letzte Pflichtprüfung: Wann wird aus einer Vermutung ein Gesetz?',
+  stationen:[
+    {id:'c1',x:4,y:2,emoji:'⚖️',name:'Vom Vermuten zum Gesetz',typ:'mc',mehrfach:false,
+     wissen:'Eine <b>Vermutung</b> (Hypothese) wird erst zum <b>physikalischen Gesetz</b>, wenn sie <b>begründet</b> ist und Experimente sie <b>immer wieder bestätigen</b> – theoretisch UND experimentell nachgewiesen.',
+     frage:'Ab wann ist eine Vermutung ein physikalisches Gesetz?',
+     optionen:[{t:'Wenn sie begründet ist und jedes Experiment sie immer wieder bestätigt',ok:true},
+               {t:'Wenn sie einmal in einem Versuch geklappt hat',ok:false},
+               {t:'Wenn ein berühmter Forscher sie aufgeschrieben hat',ok:false},
+               {t:'Wenn die Klasse darüber abgestimmt hat',ok:false}],
+     tipp:'Einmal klappen reicht nicht – und niemand beschließt ein Gesetz der Natur. Was muss IMMER WIEDER passieren?',
+     gut:'Begründet und immer wieder bestätigt – erst dann ist es ein Gesetz.',
+     var:[{frage:'Deine Vermutung hat in EINEM Versuch geklappt. Was fehlt noch bis zum physikalischen Gesetz?',
+       optionen:[{t:'Eine Begründung – und viele weitere Versuche, die es immer wieder bestätigen',ok:true},
+                 {t:'Nichts – einmal geklappt heißt bewiesen',ok:false},
+                 {t:'Ein schöner Name für das Gesetz',ok:false},
+                 {t:'Die Unterschrift eines Professors',ok:false}],
+       tipp:'Ein Zufallstreffer ist kein Nachweis. Was macht ein ehrlicher Forscher als Nächstes?',
+       gut:'Begründen und immer wieder prüfen – dann erst ist es ein Gesetz.'}]},
+    {id:'c2',blatt:'Aufgabe 3 – beide erste Aussagen',x:13,y:2,emoji:'🃏',name:'Gesetz oder Theorie?',typ:'sim',sim:w=>simSortGT(w,0),var:[{sim:w=>simSortGT(w,1),tipp:'Magnete und Zucker: immer wieder messbar. Die Teilchen-Erklärung: ein Modell für das WARUM.'}],
+     wissen:'<b>Physikalisches Gesetz</b>: beschreibt, WAS immer passiert – theoretisch und experimentell nachgewiesen. <b>Theorie</b>: erklärt mit einem Modell, WARUM.',
+     frage:'Sortiere die drei Karten.',
+     tipp:'Frag bei jeder Karte: Kann ich das immer wieder messen (Gesetz)? Oder erklärt es mit etwas Unsichtbarem, WARUM (Theorie)?',
+     gut:'Richtig sortiert! Die Teilchen-Idee ist eine Theorie – sie erklärt, warum die Gesetze gelten.',
+     schreib:'Übertrag die beiden ersten Beispiele in Aufgabe 3 – mit Begründung!'},
+    {id:'c3',x:10,y:6,emoji:'🔬',name:'Der ehrliche Forscher',typ:'text',
+     wissen:'Eine Vermutung (Hypothese) muss zu <b>allen</b> Beobachtungen passen. Widerspricht ein Experiment, hat das Experiment recht.',
+     frage:'Ein Experiment widerspricht der Vermutung eines Forschers. Was muss er tun? Nutze <b>Vermutung</b> und <b>prüfen/ändern</b>.',
+     pruef:t=>(t.includes('vermutung')||t.includes('theorie')||t.includes('these'))&&(t.includes('änder')||t.includes('verwerf')||t.includes('prüf')||t.includes('anpass')||t.includes('neu')||t.includes('aufgeben')),
+     tipp:'Darf er das Messergebnis wegwerfen, weil es ihm nicht gefällt? Oder muss er etwas anderes ändern?',
+     var:[{frage:'Eine Forscherin misst dreimal – alle drei Messungen widersprechen ihrer Vermutung. Was muss sie tun? Nutze <b>Vermutung</b> und <b>prüfen/ändern</b>.',
+       pruef:t=>(t.includes('vermutung')||t.includes('theorie')||t.includes('these'))&&(t.includes('änder')||t.includes('verwerf')||t.includes('prüf')||t.includes('anpass')||t.includes('neu')||t.includes('aufgeben')),
+       tipp:'Drei ehrliche Messungen gegen eine Vermutung – wer gewinnt?',
+       gut:'Das Experiment gewinnt: Die Vermutung wird geprüft und geändert.'}],
+     gut:'Genau: Er prüft nach – und ändert notfalls seine Vermutung. So arbeitet Wissenschaft.'}
+  ]}
+];
+
+/* ---------- Kammer der Meister (Bonus) ---------- */
+const BONUS={
+  name:'Kammer der Meister',farbe:'#ffd700',fragment:'👑',meister:'DIE VIER MEISTER',
+  start:[2,9],karte:KARTE_B,
+  intro:'Du wagst dich zu den Meistern? Drei Prüfungen – keine Herzen, nur Ruhm und Punkte.',
+  stationen:[
+    {id:'m1',x:7,y:2,emoji:'📏',name:'Meisterprüfung: Größenordnungen',typ:'mc',mehrfach:false,punkte:20,
+     wissen:'Meister schätzen erst – dann messen sie.',
+     frage:'Eine Badewanne ist voll. Wie viel Wasser ist das ungefähr?',
+     optionen:[{t:'Etwa 15 Liter',ok:false},{t:'Etwa 150 Liter',ok:true},
+               {t:'Etwa 1500 Liter',ok:false},{t:'Etwa 15 000 Liter',ok:false}],
+     tipp:'Ein großer Wassereimer fasst 10 Liter. Wie viele Eimer schüttest du in eine Wanne?',
+     gut:'Rund 150 Liter – etwa 15 große Eimer.',
+     var:[{frage:'Wie hoch ist eine Zimmertür ungefähr?',
+       optionen:[{t:'Etwa 80 cm',ok:false},{t:'Etwa 2 m',ok:true},
+                 {t:'Etwa 5 m',ok:false},{t:'Etwa 12 m',ok:false}],
+       tipp:'Stell dich in Gedanken in den Türrahmen – wie viel Luft bleibt über deinem Kopf?',
+       gut:'Rund 2 m – ein Erwachsener passt gerade so durch.'}]},
+    {id:'m2',x:4,y:5,emoji:'🔢',name:'Meisterprüfung: Einheiten',typ:'sim',punkte:20,
+     blatt:'Zusatzaufgabe a) – die drei Umrechnungen',
+     sim:w=>simEinheiten(w,[['2,5 km',2500,'m'],['4 min',240,'s'],['3500 g',3.5,'kg']]),
+     var:[{sim:w=>simEinheiten(w,[['3,2 km',3200,'m'],['5 min',300,'s'],['1500 g',1.5,'kg']]),
+       gut:'3200 m, 300 s, 1,5 kg – meisterlich!',
+       tipp:'km → m: mal 1000. min → s: mal 60. g → kg: durch 1000.'}],
+     wissen:'km → m: mal 1000 · min → s: mal 60 · g → kg: durch 1000.',
+     frage:'Rechne alle drei um.',
+     tipp:'Eine Umrechnung stimmt noch nicht. Prüfe die Richtung: wird die Zahl größer oder kleiner?',
+     gut:'2500 m, 240 s, 3,5 kg – meisterlich!',
+     schreib:'Trag die drei Ergebnisse in die Zusatzaufgabe ein!'},
+    {id:'m3',blatt:'Zusatzaufgabe b) – Name und Haus',x:14,y:7,emoji:'👤',name:'Meisterprüfung: Wer war es?',typ:'mc',mehrfach:false,punkte:20,
+     wissen:'Große Forscher stehen oft für EIN Haus – manche Einheiten tragen ihre Namen.',
+     frage:'„Er erforschte, wie Kräfte Körper bewegen. Nach ihm ist die Einheit der Kraft benannt.“ – Wer ist es, und zu welchem Haus gehört er?',
+     optionen:[{t:'Isaac Newton – Haus Mechanica',ok:true},
+               {t:'Isaac Newton – Haus Electra',ok:false},
+               {t:'Anders Celsius – Haus Mechanica',ok:false},
+               {t:'Georg Simon Ohm – Haus Thermodynamica',ok:false}],
+     tipp:'Kräfte und Bewegung – welches Haus ist das? Und Celsius kennst du vom Thermometer …',
+     gut:'Newton, Haus Mechanica – die Krafteinheit heißt bis heute „Newton“.',
+     var:[{frage:'„Auf seiner Skala gefriert Wasser bei 0 Grad und siedet bei 100 Grad.“ – Wer ist es, und zu welchem Haus gehört er?',
+       optionen:[{t:'Anders Celsius – Haus Thermodynamica',ok:true},
+                 {t:'Anders Celsius – Haus Electra',ok:false},
+                 {t:'Isaac Newton – Haus Thermodynamica',ok:false},
+                 {t:'Georg Simon Ohm – Haus Optica',ok:false}],
+       tipp:'Grad … wie heißt die Einheit auf deinem Thermometer?',
+       gut:'Celsius, Haus Thermodynamica – seine Skala steckt in jedem Thermometer.'}],
+     schreib:'Notiere Name und Haus in der Zusatzaufgabe!'}
+  ]};
+</script>
+</body>
+</html>
